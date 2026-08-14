@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/app_constants.dart';
 import 'core/storage/preferences_service.dart';
+import 'core/theme/retro_colors.dart';
 import 'features/player/player_screen.dart';
 import 'media/playback/retro_audio_handler.dart';
 import 'providers/audio_provider.dart';
@@ -28,7 +29,7 @@ Future<void> main() async {
       androidNotificationChannelId: 'com.retrowave.player.channel',
       androidNotificationChannelName: 'RetroWave Player',
       androidNotificationOngoing: true,
-      androidStopForegroundOnPause: false,
+      androidStopForegroundOnPause: true,
       androidNotificationIcon: 'mipmap/ic_launcher',
       notificationColor: const Color(0xFF1A1A2E),
     ),
@@ -56,21 +57,21 @@ class RetroWaveApp extends StatelessWidget {
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true).copyWith(
-        scaffoldBackgroundColor: const Color(0xFF121212),
+        scaffoldBackgroundColor: RetroColors.workspaceBg,
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF5C8FD6),
-          secondary: Color(0xFF90CAF9),
-          surface: Color(0xFF1E1E1E),
-          error: Color(0xFFCF6679),
+          primary: RetroColors.vfdGreen,
+          secondary: RetroColors.amberAccent,
+          surface: RetroColors.chassis,
+          error: RetroColors.redPeak,
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1E1E1E),
-          foregroundColor: Color(0xFFE0E0E0),
+          backgroundColor: RetroColors.titleBarMid,
+          foregroundColor: RetroColors.textPrimary,
           elevation: 0,
         ),
         listTileTheme: const ListTileThemeData(
-          tileColor: Color(0xFF121212),
-          selectedTileColor: Color(0xFF1A2A3A),
+          tileColor: RetroColors.wellDark,
+          selectedTileColor: Color(0xFF0D2415),
           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         ),
       ),
