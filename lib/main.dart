@@ -25,13 +25,13 @@ Future<void> main() async {
   //
   final handler = await AudioService.init<RetroAudioHandler>(
     builder: RetroAudioHandler.new,
-    config: AudioServiceConfig(
+    config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.retrowave.player.channel',
       androidNotificationChannelName: 'RetroWave Player',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,
       androidNotificationIcon: 'mipmap/ic_launcher',
-      notificationColor: const Color(0xFF1A1A2E),
+      notificationColor: Color(0xFF1A1A2E),
     ),
   );
 

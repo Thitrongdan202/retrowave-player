@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../media/models/local_media_item.dart';
@@ -9,17 +10,6 @@ import '../../media/models/local_media_item.dart';
 ///
 /// On Windows the handler is used directly as a playback abstraction —
 /// no OS-level audio service registration is needed.
-///
-/// Architecture:
-/// ```
-/// Flutter UI
-///      ↓
-/// RetroAudioHandler (this class)
-///      ↓
-/// just_audio  AudioPlayer
-///      ↓
-/// Local audio file
-/// ```
 class RetroAudioHandler extends BaseAudioHandler with SeekHandler {
   RetroAudioHandler() {
     _init();
@@ -68,24 +58,46 @@ class RetroAudioHandler extends BaseAudioHandler with SeekHandler {
   // ── BaseAudioHandler overrides ────────────────────────────────────────────
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() async {
+    // ignore: avoid_print
+    print('[RetroWave] Action: play()');
+    try {
+      await _player.play();
+    } catch (e, stack) {
+      // ignore: avoid_print
+      print('[RetroWave] play() error: $e\n$stack');
+    }
+  }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() async {
+    // ignore: avoid_print
+    print('[RetroWave] Action: pause()');
+    await _player.pause();
+  }
 
   @override
   Future<void> stop() async {
+    // ignore: avoid_print
+    print('[RetroWave] Action: stop()');
     await _player.stop();
     playbackState.add(playbackState.value.copyWith(
       processingState: AudioProcessingState.idle,
+      playing: false,
     ));
   }
 
   @override
-  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seek(Duration position) async {
+    // ignore: avoid_print
+    print('[RetroWave] Action: seek($position)');
+    await _player.seek(position);
+  }
 
   @override
   Future<void> skipToNext() async {
+    // ignore: avoid_print
+    print('[RetroWave] Action: skipToNext()');
     if (_currentIndex + 1 < _tracks.length) {
       await _playIndex(_currentIndex + 1);
     }
@@ -93,7 +105,8 @@ class RetroAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> skipToPrevious() async {
-    // If we're more than 3 s in, restart current track; otherwise go back.
+    // ignore: avoid_print
+    print('[RetroWave] Action: skipToPrevious()');
     final pos = _player.position;
     if (pos.inSeconds > 3 || _currentIndex == 0) {
       await _player.seek(Duration.zero);
@@ -121,22 +134,58 @@ class RetroAudioHandler extends BaseAudioHandler with SeekHandler {
     _currentIndex = index;
     final item = _tracks[index];
 
-    // Announce the current media item to audio_service (→ notification art etc.)
+    // Announce current media item immediately
     mediaItem.add(_toMediaItem(item));
 
-    // Connect the file to just_audio and begin playback.
+    final file = File(item.path);
+    final exists = file.existsSync();
+    final size = exists ? file.lengthSync() : 0;
+
+    // Diagnostic logging per specification
+    // ignore: avoid_print
+    print('[RetroWave] Selected:\n${item.path}');
+    // ignore: avoid_print
+    print('[RetroWave] Exists: $exists');
+    // ignore: avoid_print
+    print('[RetroWave] Size: $size bytes');
+    // ignore: avoid_print
+    print('[RetroWave] Loading audio source...');
+
+    if (!exists || size == 0) {
+      final errorMsg = !exists ? 'File does not exist' : 'File is empty (0 bytes)';
+      // ignore: avoid_print
+      print('[RetroWave] Error: $errorMsg');
+      playbackState.add(playbackState.value.copyWith(
+        processingState: AudioProcessingState.error,
+        errorMessage: errorMsg,
+      ));
+      return;
+    }
+
     try {
-      await _player.setAudioSource(
-        AudioSource.file(item.path, tag: _toMediaItem(item)),
-      );
+      final duration = await _player.setFilePath(item.path);
+      // ignore: avoid_print
+      print('[RetroWave] Duration: $duration');
+      if (duration != null) {
+        mediaItem.add(_toMediaItem(item).copyWith(duration: duration));
+      }
+
+      // ignore: avoid_print
+      print('[RetroWave] Starting playback...');
       await _player.play();
-    } on PlayerException catch (e) {
+      // ignore: avoid_print
+      print('[RetroWave] Playing: ${_player.playing}');
+    } on PlayerException catch (e, stack) {
+      // ignore: avoid_print
+      print('[RetroWave] PlayerException (${e.code}): ${e.message}\n$stack');
       playbackState.add(playbackState.value.copyWith(
         processingState: AudioProcessingState.error,
         errorCode: e.code,
-        errorMessage: e.message ?? 'Playback error',
+        errorMessage: e.message ?? 'Unable to decode audio file',
       ));
-    } on Exception catch (e) {
+    } catch (e, stack) {
+      // ignore: avoid_print
+      print('[RetroWave] Playback error: $e\n$stack');
       playbackState.add(playbackState.value.copyWith(
         processingState: AudioProcessingState.error,
         errorMessage: e.toString(),
@@ -147,6 +196,9 @@ class RetroAudioHandler extends BaseAudioHandler with SeekHandler {
   void _onPlayerStateChanged(PlayerState state) {
     final processingState = _mapProcessingState(state.processingState);
     final playing = state.playing;
+
+    // ignore: avoid_print
+    print('[RetroWave] PlayerState: playing=$playing, state=${state.processingState}');
 
     playbackState.add(playbackState.value.copyWith(
       controls: _buildControls(playing),
@@ -166,6 +218,8 @@ class RetroAudioHandler extends BaseAudioHandler with SeekHandler {
 
     // Auto-advance to next track when current finishes.
     if (processingState == AudioProcessingState.completed) {
+      // ignore: avoid_print
+      print('[RetroWave] Track completed. Auto-advancing...');
       skipToNext();
     }
   }
@@ -184,7 +238,7 @@ class RetroAudioHandler extends BaseAudioHandler with SeekHandler {
 
   void _onPlaybackError(Object error, StackTrace stack) {
     // ignore: avoid_print
-    print('[RetroAudioHandler] Playback error: $error');
+    print('[RetroWave] Stream playback error: $error\n$stack');
     playbackState.add(playbackState.value.copyWith(
       processingState: AudioProcessingState.error,
       errorMessage: error.toString(),

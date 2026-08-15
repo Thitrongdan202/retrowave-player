@@ -15,6 +15,7 @@ dependencies:
 
   # Audio playback
   just_audio: ^0.10.6
+  just_audio_windows: ^0.2.3
 
   # Android background audio service
   audio_service: ^0.18.19

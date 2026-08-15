@@ -47,12 +47,63 @@ class MainPlayerWindow extends ConsumerStatefulWidget {
 class _MainPlayerWindowState extends ConsumerState<MainPlayerWindow> {
   double _volume = 1.0;
 
+  void _showErrorDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: RetroWindow(
+            title: 'RETROWAVE ERROR',
+            width: 320,
+            isMinimizable: false,
+            onClose: () => Navigator.of(context).pop(),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, color: RetroColors.redPeak, size: 36),
+                  const SizedBox(height: 12),
+                  Text(
+                    message,
+                    style: RetroTypography.playlistItem.copyWith(color: RetroColors.textPrimary),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  RetroButton(
+                    label: 'OK',
+                    width: 60,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Listen for error states and show retro error dialog
+    ref.listen<AsyncValue<PlaybackState>>(playbackStateProvider, (previous, next) {
+      final state = next.valueOrNull;
+      if (state != null &&
+          state.processingState == AudioProcessingState.error &&
+          state.errorMessage != null &&
+          state.errorMessage!.isNotEmpty) {
+        _showErrorDialog(context, state.errorMessage!);
+      }
+    });
+
     final playbackState = ref.watch(playbackStateProvider).valueOrNull;
     final mediaItem = ref.watch(currentMediaItemProvider).valueOrNull;
     final position = ref.watch(positionProvider).valueOrNull ?? Duration.zero;
-    final duration = ref.watch(durationProvider).valueOrNull ?? Duration.zero;
+    final duration = ref.watch(durationProvider).valueOrNull ??
+        mediaItem?.duration ??
+        Duration.zero;
     final libraryState = ref.watch(musicLibraryProvider);
     final audioService = ref.read(audioPlayerServiceProvider);
 
